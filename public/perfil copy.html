@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - Media Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        
+        /* Cabeçalho de Navegação */
+        .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .nav-header h1 { margin: 0; font-size: 24px; }
+        .btn-nav { padding: 10px 20px; background: #0082c9; color: white; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: bold; font-size: 14px; }
+        .btn-nav:hover { background: #006699; }
+
+        /* Painel de Estatísticas */
+        .stats-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 40px; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; border-top: 4px solid #ccc; }
+        .stat-card .num { font-size: 28px; font-weight: bold; margin-top: 5px; }
+        .stat-card .label { font-size: 12px; color: #666; text-transform: uppercase; font-weight: bold; }
+        
+        /* Cores dos blocos de estatísticas baseados no status */
+        .stat-total { border-top-color: #333; }
+        .stat-watching { border-top-color: #2ed573; color: #2ed573; }
+        .stat-completed { border-top-color: #1e90ff; color: #1e90ff; }
+        .stat-plan { border-top-color: #ffa500; color: #ffa500; }
+        .stat-dropped { border-top-color: #ff4757; color: #ff4757; }
+        .stat-hold { border-top-color: #747d8c; color: #747d8c; }
+
+        /* Grade de Itens Salvos */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+        .card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: row; height: 180px; }
+        .card img { width: 120px; height: 100%; object-fit: cover; background: #ddd; flex-shrink: 0; }
+        .card-content { padding: 12px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+        .title { font-size: 15px; font-weight: bold; margin: 0 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* Badges e Infos Internas */
+        .badge { display: inline-block; padding: 2px 6px; font-size: 10px; border-radius: 10px; font-weight: bold; color: white; margin-bottom: 6px; text-transform: uppercase; }
+        .badge-watching { background: #2ed573; }
+        .badge-completed { background: #1e90ff; }
+        .badge-plan_to_watch { background: #ffa500; }
+        .badge-dropped { background: #ff4757; }
+        .badge-on_hold { background: #747d8c; }
+        
+        .user-details { font-size: 12px; color: #555; line-height: 1.4; margin: 0; }
+        .user-details strong { color: #222; }
+        .rating-indicator { font-size: 12px; font-weight: bold; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Cabeçalho com link de retorno -->
+    <div class="nav-header">
+        <h1>📊 Minhas Estatísticas & Lista pessoal</h1>
+        <a href="index.html" class="btn-nav">🔍 Buscar Novas Mídias</a>
+    </div>
+
+    <!-- Painel de Contadores Dinâmicos -->
+    <div class="stats-panel">
+        <div class="stat-card stat-total"><div class="label">Total Salvo</div><div id="stat-total-val" class="num">0</div></div>
+        <div class="stat-card stat-watching"><div class="label">Assistindo</div><div id="stat-watching-val" class="num">0</div></div>
+        <div class="stat-card stat-completed"><div class="label">Completados</div><div id="stat-completed-val" class="num">0</div></div>
+        <div class="stat-card stat-plan"><div class="label">Planejados</div><div id="stat-plan-val" class="num">0</div></div>
+        <div class="stat-card stat-dropped"><div class="label">Abandonados</div><div id="stat-dropped-val" class="num">0</div></div>
+        <div class="stat-card stat-hold"><div class="label">Em Espera</div><div id="stat-hold-val" class="num">0</div></div>
+    </div>
+
+    <h2>📋 Minha Coleção</h2>
+    <!-- Grid onde as mídias salvas vão aparecer -->
+    <div id="saved-grid" class="grid"></div>
+</div>
+
+<script>
+    // Executa as buscas assim que a página termina de carregar
+    window.addEventListener('DOMContentLoaded', () => {
+        carregarEstatisticas();
+        carregarListaPessoal();
+    });
+
+    // Função que consome a rota GET /api/stats do Node para alimentar os blocos do topo
+    async function carregarEstatisticas() {
+        try {
+            const response = await fetch('/api/stats');
+            const data = await response.json();
+
+            document.getElementById('stat-total-val').innerText = data.totalRegistered;
+            document.getElementById('stat-watching-val').innerText = data.byStatus.watching;
+            document.getElementById('stat-completed-val').innerText = data.byStatus.completed;
+            document.getElementById('stat-plan-val').innerText = data.byStatus.plan_to_watch;
+            document.getElementById('stat-dropped-val').innerText = data.byStatus.dropped;
+            document.getElementById('stat-hold-val').innerText = data.byStatus.on_hold;
+        } catch (error) {
+            console.error('Erro ao carregar estatísticas:', error);
+        }
+    }
+
+    // Função que consome a rota GET /api/list para desenhar os mini-cards horizontais
+    async function carregarListaPessoal() {
+        const savedGrid = document.getElementById('saved-grid');
+        savedGrid.innerHTML = '<p>Carregando sua lista...</p>';
+
+        try {
+            const response = await fetch('/api/list');
+            const data = await response.json();
+
+            if (!data.list || data.list.length === 0) {
+                savedGrid.innerHTML = '<p>Sua lista está vazia. Volte para a busca e adicione mídias!</p>';
+                return;
+            }
+
+            savedGrid.innerHTML = '';
+            
+            // Dicionário para traduzir o ID do status interno para exibição amigável
+            const statusTraduzido = {
+                watching: 'Assistindo',
+                completed: 'Completado',
+                plan_to_watch: 'Planejado',
+                dropped: 'Abandonado',
+                on_hold: 'Em Espera'
+            };
+
+            // Dicionário de ícones visuais para sua nota customizada
+            const iconesNota = {
+                otimo: '🔥 Ótimo',
+                bom: '👍 Bom',
+                ruim: '👎 Ruim',
+                pessimo: '💩 Péssimo'
+            };
+
+            data.list.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                // Formatação legível das datas salvadas
+                const dataInicio = item.startDate ? item.startDate.split('-').reverse().join('/') : 'Não iniciada';
+                const dataFim = item.endDate ? item.endDate.split('-').reverse().join('/') : 'Não finalizada';
+                const textoNota = iconesNota[item.myRating] || item.myRating;
+
+                card.innerHTML = 
+                    '<img src="' + item.image + '" alt="' + item.title + '">' +
+                    '<div class="card-content">' +
+                        '<div>' +
+                            '<span class="badge badge-' + item.status + '">' + statusTraduzido[item.status] + '</span>' +
+                            '<h3 class="title" title="' + item.title + '">' + item.title + '</h3>' +
+                            '<p class="user-details">' +
+                                '<strong>Tipo:</strong> ' + item.type + '<br>' +
+                                '<strong>Onde:</strong> ' + item.platform + '<br>' +
+                                '<strong>Início:</strong> ' + dataInicio + '<br>' +
+                                '<strong>Fim:</strong> ' + dataFim + '' +
+                            '</p>' +
+                        '</div>' +
+                        '<div class="rating-indicator">' +
+                            'Minha Nota: ' + textoNota +
+                        '</div>' +
+                    '</div>';
+
+                savedGrid.appendChild(card);
+            });
+
+        } catch (error) {
+            savedGrid.innerHTML = '<p>Erro ao carregar sua lista.</p>';
+            console.error(error);
+        }
+    }
+</script>
+</body>
+</html>

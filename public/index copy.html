@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Media Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        button { padding: 12px 24px; background: #0082c9; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #006699; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .card img { width: 100%; height: 300px; object-fit: cover; background: #ddd; }
+        .card-content { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .title { font-size: 16px; font-weight: bold; margin: 0 0 5px 0; }
+        .badge { display: inline-block; padding: 3px 8px; font-size: 12px; border-radius: 12px; font-weight: bold; margin-bottom: 10px; align-self: flex-start; }
+        .badge-anime { background: #ff4757; color: white; }
+        .badge-filme { background: #1e90ff; color: white; }
+        .badge-série { background: #2ed573; color: white; }
+        .synopsis { font-size: 13px; color: #666; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 15px; }
+        select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎬 Tracker de Mídias Universal</h1>
+    
+    <!-- Barra de Busca -->
+    <div class="search-box">
+        <input type="text" id="search-input" placeholder="Digite o nome de um filme, série ou anime...">
+        <button id="search-button">Buscar</button>
+    </div>
+
+    <!-- Grid de Resultados -->
+    <div id="results-grid" class="grid"></div>
+</div>
+
+<script>
+    const searchInput = document.getElementById('search-input');
+    const searchButton = document.getElementById('search-button');
+    const resultsGrid = document.getElementById('results-grid');
+
+    // Evento de clique no botão buscar
+    searchButton.addEventListener('click', () => {
+        const query = searchInput.value.trim();
+        if (query) buscarMidias(query);
+    });
+
+    // Permitir buscar ao apertar "Enter"
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) buscarMidias(query);
+        }
+    });
+
+    // Função JavaScript Puro (Fetch API) para buscar dados do seu Servidor Node
+    async function buscarMidias(nome) {
+        resultsGrid.innerHTML = '<p>Buscando nas APIs...</p>';
+        
+        try {
+            const response = await fetch(`/api/search?query=${encodeURIComponent(nome)}`);
+            const data = await response.json();
+            
+            renderizarCards(data.results);
+        } catch (error) {
+            resultsGrid.innerHTML = '<p>Erro ao carregar dados. Verifique o servidor.</p>';
+            console.error(error);
+        }
+    }
+
+    // Função para desenhar os Cards na tela usando Vanilla JS
+    function renderizarCards(items) {
+        resultsGrid.innerHTML = '';
+        
+        if (!items || items.length === 0) {
+            resultsGrid.innerHTML = '<p>Nenhuma mídia encontrada.</p>';
+            return;
+        }
+
+            items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        
+        // Garante que o link da imagem seja uma string limpa
+        const capa = item.image ? item.image : "https://placeholder.co";
+        // Limpa aspas do título para não quebrar o HTML interno
+        const tituloLimpo = item.title.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        
+        card.innerHTML = 
+            '<img src="' + capa + '" alt="' + tituloLimpo + '">' +
+            '<div class="card-content">' +
+                '<div>' +
+                    '<span class="badge badge-' + item.type.toLowerCase() + '">' + item.type + ' (' + item.releaseYear + ')</span>' +
+                    '<h3 class="title">' + item.title + '</h3>' +
+                    '<p class="synopsis">' + (item.synopsis || 'Sem sinopse disponível em português.') + '</p>' +
+                '</div>' +
+                '<div>' +
+                    '<small>Nota: ⭐ ' + item.score + '</small>' +
+                    '<select onchange="salvarStatus(\'' + item.id + '\', \'' + tituloLimpo + '\', \'' + item.type + '\', this.value, \'' + capa + '\')">' +
+                        '<option value="">-- Mudar Status --</option>' +
+                        '<option value="plan_to_watch">Quero Assistir</option>' +
+                        '<option value="watching">Assistindo</option>' +
+                        '<option value="completed">Concluído</option>' +
+                    '</select>' +
+                '</div>' +
+            '</div>';
+            
+        resultsGrid.appendChild(card);
+    });
+
+    }
+
+    // Função para enviar os dados de salvamento (POST) para o Node.js
+    async function salvarStatus(id, titulo, tipo, statusSelecionado, capa) {
+        if (!statusSelecionado) return;
+
+        try {
+            const response = await fetch('/api/list/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-nextcloud-user': 'usuario_teste_local' // Simulando o cabeçalho do Nextcloud
+                },
+                body: JSON.stringify({
+                    mediaId: id,
+                    title: titulo,
+                    type: tipo,
+                    status: statusSelecionado,
+                    image: capa
+                })
+            });
+
+            const resultado = await response.json();
+            if (resultado.success) {
+                alert(`"${titulo}" adicionado à sua lista como "${statusSelecionado}"!`);
+            }
+        } catch (error) {
+            alert('Erro ao salvar o status da mídia.');
+            console.error(error);
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  media-tracker-app:
+    build: .
+    container_name: nextcloud-media-tracker
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - AMBIENTE_DESENVOLVIMENTO=false # Desativa o bypass local para validar os tokens do Nextcloud
+      - TMDB_BEARER_TOKEN=seu_token_longo_aqui
+    networks:
+      # Conecta seu app na mesma rede que o contêiner do seu Nextcloud já usa
+      - nextcloud_network
+
+networks:
+  nextcloud_network:
+    external: true # Avisa ao Docker que a rede já existe e foi criada pelo Nextcloud
+#No campo networks.nextcloud_network.external, certifique-se de trocar o nome nextcloud_network pelo nome exato da rede Docker que a sua instância de testes do Nextcloud está usando na sua máquina. Você pode descobrir digitando docker network ls no seu terminal.

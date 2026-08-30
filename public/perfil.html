@@ -6,12 +6,12 @@
     <title>Estatísticas MAL Style</title>
     <style>
         body { font-family: Arial, sans-serif; background: #121214; margin: 0; padding: 20px; color: #e1e1e6; }
-        .container { max-width: 950px; margin: 0 auto; }
+        .container { max-width:1024px; margin: 0 auto; }
         .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid #29292e; padding-bottom: 15px; }
         .btn-nav { padding: 10px 20px; background: #0082c9; color: white; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: bold; font-size: 14px; }
         
         /* Layout MAL Box */
-        .mal-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 25px; margin-bottom: 40px; }
+        .mal-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; margin-bottom: 40px; }
         .mal-box { background: #1c1c1f; border-radius: 6px; padding: 20px; border: 1px solid #29292e; }
         .mal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #323238; padding-bottom: 5px; display: flex; justify-content: space-between; }
         .mal-title span { color: #0082c9; }
@@ -63,7 +63,7 @@
         /* Grade de Itens Salvos */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
         .card { background: #1c1c1f; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: row; height: 180px; }
-        .card img { width: 120px; height: 100%; object-fit: cover; background: #323238; flex-shrink: 0; }
+        .card img { width: 120px; height: 100%; object-fit: cover; background: #ddd; flex-shrink: 0; }
         .card-content { padding: 12px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
         .title { font-size: 15px; font-weight: bold; margin: 0 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
@@ -74,6 +74,10 @@
         .badge-plan_to_watch { background: #ffa500; }
         .badge-dropped { background: #ff4757; }
         .badge-on_hold { background: #747d8c; }
+
+        .user-details { font-size: 12px; color: #555; line-height: 1.4; margin: 0; }
+        .user-details strong { color: #222; }
+        .rating-indicator { font-size: 12px; font-weight: bold; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -98,6 +102,7 @@
     <!-- Grid onde as mídias salvas vão aparecer -->
     <div id="saved-grid" class="grid"></div>
 
+    <h2>📋 Estatisticas</h2>
     <!-- Seção dos blocos visuais MAL -->
     <div id="stats-wrapper" class="mal-container"></div>
 
@@ -119,6 +124,8 @@
     window.addEventListener('DOMContentLoaded', () => {
         renderizarEstatisticasMAL();
         renderizarTopMidias();
+        carregarEstatisticas();
+        carregarListaPessoal();
     });
 
     async function renderizarEstatisticasMAL() {
@@ -213,16 +220,38 @@
             const response = await fetch('/api/stats');
             const data = await response.json();
 
-            document.getElementById('stat-total-val').innerText = data.totalRegistered;
-            document.getElementById('stat-watching-val').innerText = data.byStatus.watching;
-            document.getElementById('stat-completed-val').innerText = data.byStatus.completed;
-            document.getElementById('stat-plan-val').innerText = data.byStatus.plan_to_watch;
-            document.getElementById('stat-dropped-val').innerText = data.byStatus.dropped;
-            document.getElementById('stat-hold-val').innerText = data.byStatus.on_hold;
+            // Criamos contadores zerados para consolidar o topo da tela
+            let totalSalvo = 0;
+            let totalWatching = 0;
+            let totalCompleted = 0;
+            let totalPlan = 0;
+            let totalDropped = 0;
+            let totalOnHold = 0;
+
+            // Percorre cada tipo de mídia retornado pelo back-end (Anime, Série, Filme) e soma os status
+            Object.keys(data).forEach(tipo => {
+                const info = data[tipo];
+                totalSalvo += info.totalEntries || 0;
+                totalWatching += info.watching || 0;
+                totalCompleted += info.completed || 0;
+                totalPlan += info.plan_to_watch || 0;
+                totalDropped += info.dropped || 0;
+                totalOnHold += info.on_hold || 0;
+            });
+
+            // Injeta as somas consolidadas nos blocos visuais do painel superior
+            document.getElementById('stat-total-val').innerText = totalSalvo;
+            document.getElementById('stat-watching-val').innerText = totalWatching;
+            document.getElementById('stat-completed-val').innerText = totalCompleted;
+            document.getElementById('stat-plan-val').innerText = totalPlan;
+            document.getElementById('stat-dropped-val').innerText = totalDropped;
+            document.getElementById('stat-hold-val').innerText = totalOnHold;
+
         } catch (error) {
-            console.error('Erro ao carregar estatísticas:', error);
+            console.error('Erro ao processar e somar as estatísticas:', error);
         }
     }
+
 
     // Função que consome a rota GET /api/list para desenhar os mini-cards horizontais
     async function carregarListaPessoal() {

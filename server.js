@@ -120,11 +120,11 @@ app.get('/api/search', async (req, res) => {
 app.use(express.json());
 
 /**
- * ROTA ATUALIZADA COM APP STORAGE: Salva mídias direto no banco do Nextcloud
+ * ROTA CORRIGIDA: Salva localmente se estiver em ambiente de desenvolvimento
  */
 app.post('/api/list/add', verificarAutenticacaoNextcloud, async (req, res) => {
     const nextcloudUser = req.usuarioAtual;
-    const authHeader = req.headers['authorization-app-api']; // Reaproveita o token da requisição original
+    const authHeader = req.headers['authorization-app-api'];
     
     const { 
         mediaId, title, type, status, image,
@@ -136,56 +136,60 @@ app.post('/api/list/add', verificarAutenticacaoNextcloud, async (req, res) => {
         return res.status(400).json({ error: 'Os campos "mediaId" e "status" são obrigatórios.' });
     }
 
+    const userMediaProgress = {
+        mediaId, title, type, status, image,
+        platform: platform || 'Não Informada',
+        startDate: startDate || null,
+        endDate: endDate || null,
+        myRating: myRating ? parseFloat(myRating) : null,
+        episodesCount: episodesCount ? parseInt(episodesCount, 10) : (type === 'Filme' && status === 'completed' ? 1 : 0),
+        isRewatched: !!isRewatched,
+        addedAt: new Date().toISOString()
+    };
+
+    // MODO SIMULAÇÃO LOCAL (Usa a memória do seu Windows)
+    if (process.env.AMBIENTE_DESENVOLVIMENTO === 'true') {
+        if (!global.userDatabases) global.userDatabases = {};
+        if (!global.userDatabases[nextcloudUser]) global.userDatabases[nextcloudUser] = [];
+        
+        global.userDatabases[nextcloudUser] = global.userDatabases[nextcloudUser].filter(item => item.mediaId !== mediaId);
+        global.userDatabases[nextcloudUser].push(userMediaProgress);
+        
+        console.log(`[Simulação Local] Salvo com sucesso: Mídia ${title}`);
+        return res.json({ success: true, savedData: userMediaProgress });
+    }
+
+    // MODO PRODUÇÃO (Executado apenas quando estiver dentro do Nextcloud real)
     try {
-        const userMediaProgress = {
-            mediaId, title, type, status, image,
-            platform: platform || 'Não Informada',
-            startDate: startDate || null,
-            endDate: endDate || null,
-            myRating: myRating ? parseFloat(myRating) : null,
-            episodesCount: episodesCount ? parseInt(episodesCount, 10) : (type === 'Filme' && status === 'completed' ? 1 : 0),
-            isRewatched: !!isRewatched,
-            addedAt: new Date().toISOString()
-        };
-
-        /**
-         * INTEGRAÇÃO REAL COM NEXTCLOUD: 
-         * Grava os dados do card usando o ID da mídia como chave exclusiva no App Storage
-         */
         await axios.put(`http://nextcloud-container/index.php/apps/appapi/api/v1/storage/user/${nextcloudUser}/${mediaId}`, userMediaProgress, {
-            headers: {
-                'Authorization-AppAPI': authHeader,
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Authorization-AppAPI': authHeader, 'Content-Type': 'application/json' }
         });
-
-        console.log(`[Nextcloud Storage] Salvo com sucesso: Mídia ${title} para o usuário ${nextcloudUser}`);
         res.json({ success: true, savedData: userMediaProgress });
-
     } catch (error) {
-        console.error('Erro ao gravar no App Storage do Nextcloud:', error.message);
-        res.status(500).json({ error: 'Erro de comunicação ao salvar os dados no Nextcloud.' });
+        console.error('Erro no App Storage do Nextcloud:', error.message);
+        res.status(500).json({ error: 'Erro de comunicação com o Nextcloud.' });
     }
 });
 
 /**
- * ROTA ATUALIZADA COM APP STORAGE: Puxa os dados reais para montar os blocos estatísticos MAL
+ * ROTA CORRIGIDA: Estatísticas dinâmicas com suporte a modo local
  */
 app.get('/api/stats', verificarAutenticacaoNextcloud, async (req, res) => {
     const nextcloudUser = req.usuarioAtual;
     const authHeader = req.headers['authorization-app-api'];
+    let userList = [];
 
     try {
-        /**
-         * INTEGRAÇÃO REAL COM NEXTCLOUD:
-         * Puxa todos os registros armazenados na conta deste usuário
-         */
-        const nextcloudResponse = await axios.get(`http://nextcloud-container/index.php/apps/appapi/api/v1/storage/user/${nextcloudUser}`, {
-            headers: { 'Authorization-AppAPI': authHeader }
-        });
-
-        // Converte o objeto chave-valor do Nextcloud em uma array tratável de mídias
-        const userList = nextcloudResponse.data ? Object.values(nextcloudResponse.data) : [];
+        if (process.env.AMBIENTE_DESENVOLVIMENTO === 'true') {
+            // Puxa os dados da memória local
+            userList = (global.userDatabases && global.userDatabases[nextcloudUser]) || [];
+        } else {
+            // Puxa os dados do banco do Nextcloud
+            const nextcloudResponse = await axios.get(`http://nextcloud-container/index.php/apps/appapi/api/v1/storage/user/${nextcloudUser}`, {
+                headers: { 'Authorization-AppAPI': authHeader }
+            });
+            userList = nextcloudResponse.data ? Object.values(nextcloudResponse.data) : [];
+        }
 
         const criarEstruturaTipo = () => ({
             watching: 0, completed: 0, on_hold: 0, dropped: 0, plan_to_watch: 0,
@@ -235,19 +239,24 @@ app.get('/api/stats', verificarAutenticacaoNextcloud, async (req, res) => {
         res.json(respostaFinal);
 
     } catch (error) {
-        console.error('Erro ao ler estatísticas do Nextcloud Storage:', error.message);
-        res.status(500).json({ error: 'Erro ao extrair estatísticas do Nextcloud.' });
+        console.error('Erro ao ler estatísticas:', error.message);
+        res.status(500).json({ error: 'Erro ao extrair estatísticas.' });
     }
 });
 
 /**
- * ROTA ATUALIZADA COM APP STORAGE: Lista o catálogo inteiro do usuário do Nextcloud
+ * ROTA CORRIGIDA: Exposição da lista de mídias com suporte a modo local
  */
 app.get('/api/list', verificarAutenticacaoNextcloud, async (req, res) => {
     const nextcloudUser = req.usuarioAtual;
     const authHeader = req.headers['authorization-app-api'];
 
     try {
+        if (process.env.AMBIENTE_DESENVOLVIMENTO === 'true') {
+            const userList = (global.userDatabases && global.userDatabases[nextcloudUser]) || [];
+            return res.json({ list: userList });
+        }
+
         const nextcloudResponse = await axios.get(`http://nextcloud-container/index.php/apps/appapi/api/v1/storage/user/${nextcloudUser}`, {
             headers: { 'Authorization-AppAPI': authHeader }
         });
@@ -256,32 +265,11 @@ app.get('/api/list', verificarAutenticacaoNextcloud, async (req, res) => {
         res.json({ list: userList });
 
     } catch (error) {
-        console.error('Erro ao ler lista do Nextcloud Storage:', error.message);
-        res.json({ list: [] }); // Retorna array vazia em caso de falha de comunicação
+        console.error('Erro ao ler lista do Storage:', error.message);
+        res.json({ list: [] });
     }
 });
 
-
-/**
- * ROTA ATUALIZADA COM APP STORAGE: Lista o catálogo inteiro do usuário do Nextcloud
- */
-app.get('/api/list', verificarAutenticacaoNextcloud, async (req, res) => {
-    const nextcloudUser = req.usuarioAtual;
-    const authHeader = req.headers['authorization-app-api'];
-
-    try {
-        const nextcloudResponse = await axios.get(`http://nextcloud-container/index.php/apps/appapi/api/v1/storage/user/${nextcloudUser}`, {
-            headers: { 'Authorization-AppAPI': authHeader }
-        });
-
-        const userList = nextcloudResponse.data ? Object.values(nextcloudResponse.data) : [];
-        res.json({ list: userList });
-
-    } catch (error) {
-        console.error('Erro ao ler lista do Nextcloud Storage:', error.message);
-        res.json({ list: [] }); // Retorna array vazia em caso de falha de comunicação
-    }
-});
 
 app.listen(PORT, () => {
     console.log(`Servidor do ExApp rodando com sucesso na porta ${PORT}`);

@@ -3,36 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Media Tracker</title>
+    <title>Media Tracker Nextcloud</title>
     <link rel="stylesheet" href="style.css">
-    
 </head>
 <body>
 
-<div class="container">
-    <div class="nav-header">
-        <h1>🎬 Tracker de Mídias Universal</h1>
-        <a href="perfil.html" class="btn-nav-perfil">📊 Meu Perfil & Estatísticas MAL</a>
-    </div>
-    
-    <div class="search-box">
-        <input type="text" id="search-input" placeholder="Pesquisar filmes, séries ou animes no catálogo global...">
-        <button id="search-button">Buscar</button>
-    </div>
+    <!-- BARRA LATERAL FIXA (Nunca muda entre as páginas) -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">📁 Media Tracker</div>
+        <ul class="sidebar-menu">
+            <li class="sidebar-item"><a href="#" onclick="carregarPagina('home')" id="menu-home" class="active">🏠 Dashboard</a></li>
+            <li class="sidebar-item"><a href="#" onclick="carregarPagina('perfil')" id="menu-perfil">📊 Watchlist & Stats</a></li>
+        </ul>
+    </aside>
 
-    <div id="watching-section" style="display:none;">
-        <div class="section-title">📺 Assistindo Atualmente</div>
-        <div id="watching-grid" class="grid"></div>
-    </div>
+    <!-- CONTEÚDO QUE MUDA DINAMICAMENTE -->
+    <main class="main-content">
+        <div id="app-content" class="container">
+            <!-- O conteúdo da Home ou do Perfil será injetado aqui via JS -->
+        </div>
+    </main>
 
-    <div id="recent-section" style="display:none;">
-        <div class="section-title">⏱️ Adicionados Recentemente</div>
-        <div id="recent-grid" class="grid"></div>
-    </div>
-
-    <div class="section-title">🔍 Resultados da Pesquisa</div>
-    <div id="results-grid" class="grid"><p style="color:#666;">Digite algo acima para iniciar...</p></div>
-</div>
-<script type="module" src="/src/home/home.js"></script>
+    <script src="/src/router.js"></script>
 </body>
 </html>

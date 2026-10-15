@@ -1,21 +1,22 @@
-window.addEventListener('DOMContentLoaded', () => {
+export function inicializarPerfil() {
     renderizarEstatisticasMAL();
     renderizarTopMidias();
     carregarEstatisticas();
     carregarListaPessoal();
-});
+}
 
 async function renderizarEstatisticasMAL() {
     const wrapper = document.getElementById('stats-wrapper');
+    if (!wrapper) return;
     try {
         const response = await fetch('/api/stats');
         const data = await response.json();
 
+        wrapper.innerHTML = '';
         Object.keys(data).forEach(tipo => {
             const info = data[tipo];
             const total = info.totalEntries || 1;
 
-            // Frações proporcionais para a linha empilhada
             const pWatch = (info.watching / total) * 100;
             const pComp = (info.completed / total) * 100;
             const pHold = (info.on_hold / total) * 100;
@@ -61,8 +62,8 @@ async function renderizarTopMidias() {
 
         Object.keys(targets).forEach(tipo => {
             const gridEl = document.getElementById(targets[tipo]);
+            if (!gridEl) return;
 
-            // Ordena do maior pro menor baseado na nova nota numérica
             const filtrados = data.list
                 .filter(item => item.type === tipo && item.myRating !== null)
                 .sort((a, b) => b.myRating - a.myRating)
@@ -91,21 +92,13 @@ async function renderizarTopMidias() {
     } catch (e) { console.error(e); }
 }
 
-// Função que consome a rota GET /api/stats do Node para alimentar os blocos do topo
 async function carregarEstatisticas() {
     try {
         const response = await fetch('/api/stats');
         const data = await response.json();
 
-        // Criamos contadores zerados para consolidar o topo da tela
-        let totalSalvo = 0;
-        let totalWatching = 0;
-        let totalCompleted = 0;
-        let totalPlan = 0;
-        let totalDropped = 0;
-        let totalOnHold = 0;
+        let totalSalvo = 0, totalWatching = 0, totalCompleted = 0, totalPlan = 0, totalDropped = 0, totalOnHold = 0;
 
-        // Percorre cada tipo de mídia retornado pelo back-end (Anime, Série, Filme) e soma os status
         Object.keys(data).forEach(tipo => {
             const info = data[tipo];
             totalSalvo += info.totalEntries || 0;
@@ -116,23 +109,22 @@ async function carregarEstatisticas() {
             totalOnHold += info.on_hold || 0;
         });
 
-        // Injeta as somas consolidadas nos blocos visuais do painel superior
-        document.getElementById('stat-total-val').innerText = totalSalvo;
-        document.getElementById('stat-watching-val').innerText = totalWatching;
-        document.getElementById('stat-completed-val').innerText = totalCompleted;
-        document.getElementById('stat-plan-val').innerText = totalPlan;
-        document.getElementById('stat-dropped-val').innerText = totalDropped;
-        document.getElementById('stat-hold-val').innerText = totalOnHold;
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        setVal('stat-total-val', totalSalvo);
+        setVal('stat-watching-val', totalWatching);
+        setVal('stat-completed-val', totalCompleted);
+        setVal('stat-plan-val', totalPlan);
+        setVal('stat-dropped-val', totalDropped);
+        setVal('stat-hold-val', totalOnHold);
 
     } catch (error) {
-        console.error('Erro ao processar e somar as estatísticas:', error);
+        console.error('Erro ao processar estatísticas:', error);
     }
 }
 
-
-// Função que consome a rota GET /api/list para desenhar os mini-cards horizontais
 async function carregarListaPessoal() {
     const savedGrid = document.getElementById('saved-grid');
+    if (!savedGrid) return;
     savedGrid.innerHTML = '<p>Carregando sua lista...</p>';
 
     try {
@@ -146,7 +138,6 @@ async function carregarListaPessoal() {
 
         savedGrid.innerHTML = '';
 
-        // Dicionário para traduzir o ID do status interno para exibição amigável
         const statusTraduzido = {
             watching: 'Assistindo',
             completed: 'Completado',
@@ -155,22 +146,12 @@ async function carregarListaPessoal() {
             on_hold: 'Em Espera'
         };
 
-        // Dicionário de ícones visuais para sua nota customizada
-        const iconesNota = {
-            otimo: '🔥 Ótimo',
-            bom: '👍 Bom',
-            ruim: '👎 Ruim',
-            pessimo: '💩 Péssimo'
-        };
-
         data.list.forEach(item => {
             const card = document.createElement('div');
             card.className = 'card';
 
-            // Formatação legível das datas salvadas
             const dataInicio = item.startDate ? item.startDate.split('-').reverse().join('/') : 'Não iniciada';
             const dataFim = item.endDate ? item.endDate.split('-').reverse().join('/') : 'Não finalizada';
-            const textoNota = iconesNota[item.myRating] || item.myRating;
 
             card.innerHTML =
                 '<img src="' + item.image + '" alt="' + item.title + '">' +
@@ -186,7 +167,7 @@ async function carregarListaPessoal() {
                 '</p>' +
                 '</div>' +
                 '<div class="rating-indicator">' +
-                'Minha Nota: ' + textoNota +
+                'Minha Nota: <strong style="color:#ffa500;">⭐ ' + (item.myRating || 'N/A') + '/10</strong>' +
                 '</div>' +
                 '</div>';
 

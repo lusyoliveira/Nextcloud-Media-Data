@@ -269,6 +269,8 @@ app.get('/api/list', verificarAutenticacaoNextcloud, async (req, res) => {
         res.json({ list: [] });
     }
 });
+// Se a pasta 'src' contém seus arquivos estáticos
+app.use('/src', express.static('src'));
 
 
 app.listen(PORT, () => {
